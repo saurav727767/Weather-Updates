@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather App</title>
+  <style>
+    :root {
+      --bg-color: #f0f4f8;
+      --text-color: #000;
+      --container-bg: #fff;
+      --card-bg: #e9ecef;
+      --button-bg: #007bff;
+      --button-hover: #0056b3;
+    }
+    .dark-mode {
+      --bg-color: #1e1e1e;
+      --text-color: #f0f0f0;
+      --container-bg: #2c2c2c;
+      --card-bg: #3a3a3a;
+      --button-bg: #4444ff;
+      --button-hover: #2222aa;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      transition: background 0.3s, color 0.3s;
+    }
+    .weather-container {
+      background: var(--container-bg);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 100%;
+      max-width: 1000px;
+      box-sizing: border-box;
+    }
+    input, button {
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    input {
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: var(--button-bg);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: var(--button-hover);
+    }
+    .toggle-mode {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      background: var(--button-bg);
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .error { color: red; }
+    .weather-icon { width: 64px; height: 64px; }
+    .info-label { font-weight: bold; }
+    .forecast-container {
+      margin-top: 1rem;
+      text-align: left;
+    }
+    .hourly-scroll, .daily-scroll {
+      display: flex;
+      overflow-x: auto;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+    }
+    .hourly-item, .daily-item {
+      background: var(--card-bg);
+      padding: 0.5rem;
+      border-radius: 8px;
+      min-width: 130px;
+      flex: 0 0 auto;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+    .daily-item img {
+      width: 40px;
+      height: 40px;
+    }
+    @media (max-width: 600px) {
+      .weather-container {
+        padding: 1rem;
+      }
+      input, button {
+        font-size: 0.9rem;
+        padding: 0.6rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="toggle-mode" onclick="toggleMode()">🌙 Toggle Mode</button>
+  <div class="weather-container">
+    <h2>🌤️ Weather App</h2>
+    <input type="text" id="locationInput" placeholder="Enter location">
+    <button onclick="getWeather()">Get Weather</button>
+    <div id="weatherResult"></div>
+    <div id="hourlyForecast" class="forecast-container"></div>
+    <div id="dailyForecast" class="forecast-container"></div>
+  </div>
+
+  <script>
+    function toggleMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    async function getWeather() {
+      const location = document.getElementById('locationInput').value;
+      const resultDiv = document.getElementById('weatherResult');
+      const hourlyDiv = document.getElementById('hourlyForecast');
+      const dailyDiv = document.getElementById('dailyForecast');
+      resultDiv.innerHTML = 'Loading...';
+      hourlyDiv.innerHTML = '';
+      dailyDiv.innerHTML = '';
+
+      try {
+        const currentRes = await fetch(`https://api.weatherapi.com/v1/current.json?key=ceed3d4e7fd44dc095111919250507&q=${location}&aqi=yes`);
+        const forecastRes = await fetch(`https://api.weatherapi.com/v1/forecast.json?key=ceed3d4e7fd44dc095111919250507&q=${location}&days=5&aqi=no&alerts=no`);
+        const currentData = await currentRes.json();
+        const forecastData = await forecastRes.json();
+
+        if (currentData.error || forecastData.error) {
+          resultDiv.innerHTML = `<p class="error">${currentData.error?.message || forecastData.error?.message}</p>`;
+          return;
+        }
+
+        const { temp_c, condition, feelslike_c, humidity, wind_kph, last_updated } = currentData.current;
+        const { name, country } = currentData.location;
+
+        resultDiv.innerHTML = `
+          <h3>${name}, ${country}</h3>
+          <img class="weather-icon" src="${condition.icon.replace('http:', 'https:')}" alt="${condition.text}" />
+          <p><strong>${condition.text}</strong></p>
+          <p><span class="info-label">Temperature:</span> ${temp_c}&deg;C</p>
+          <p><span class="info-label">Feels Like:</span> ${feelslike_c}&deg;C</p>
+          <p><span class="info-label">Humidity:</span> ${humidity}%</p>
+          <p><span class="info-label">Wind:</span> ${wind_kph} kph</p>
+          <p><span class="info-label">Last Updated:</span> ${last_updated}</p>
+        `;
+
+        const todayHours = forecastData.forecast.forecastday[0].hour;
+        hourlyDiv.innerHTML = `
+          <h4>Today's Hourly Forecast:</h4>
+          <div class="hourly-scroll">
+            ${todayHours.map(hour => `
+              <div class="hourly-item">
+                <p><strong>${hour.time.split(' ')[1]}</strong></p>
+                <img src="${hour.condition.icon.replace('http:', 'https:')}" alt="${hour.condition.text}" width="32">
+                <p>${hour.temp_c}&deg;C</p>
+                <p>${hour.condition.text}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        dailyDiv.innerHTML = '<h4>Next 4-Day Forecast:</h4><div class="daily-scroll">';
+        forecastData.forecast.forecastday.slice(1).forEach(day => {
+          dailyDiv.innerHTML += `
+            <div class="daily-item">
+              <p><strong>${day.date}</strong></p>
+              <img src="${day.day.condition.icon.replace('http:', 'https:')}" alt="${day.day.condition.text}">
+              <p>${day.day.condition.text}</p>
+              <p>⬆ ${day.day.maxtemp_c}&deg;C</p>
+              <p>⬇ ${day.day.mintemp_c}&deg;C</p>
+              <p>💧 ${day.day.avghumidity}%</p>
+            </div>
+          `;
+        });
+        dailyDiv.innerHTML += '</div>';
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Failed to fetch weather data.</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
